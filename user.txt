@@ -1,0 +1,37 @@
+# User Roles and Permissions
+
+## Admin
+- Full system access
+- User management
+- System configuration
+- Analytics and reporting
+
+## Manager
+- Project management
+- Team management
+- Reporting
+- Approvals
+
+## Team Lead
+- Project oversight
+- Task assignment
+- Team coordination
+- Status reporting
+
+## Developer
+- Task management
+- Time tracking
+- Code repository access
+- Documentation
+
+## Designer
+- Design tasks
+- Asset management
+- Feedback collection
+- Prototype creation
+
+## Client
+- Project viewing
+- Feedback provision
+- Milestone approval
+- Document access
