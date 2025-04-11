@@ -18,7 +18,7 @@ const columnSchema = new mongoose.Schema({
   color: String,
   taskStatus: {
     type: String,
-    enum: ["todo", "in-progress", "review", "done", "archived"],
+    enum: ["backlog", "todo", "in-progress", "review", "done", "archived"],
   },
 })
 

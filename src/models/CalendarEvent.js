@@ -80,7 +80,7 @@ const calendarEventSchema = new mongoose.Schema(
           value: Number,
           unit: {
             type: String,
-            enum: ["minutes", "hours", "days"],
+            enum: ["minutes", "hours", "days", "weeks"],
           },
         },
         type: {

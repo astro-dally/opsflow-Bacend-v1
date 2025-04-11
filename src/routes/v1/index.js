@@ -14,6 +14,8 @@ import notificationRoutes from "./notificationRoutes.js"
 import fileRoutes from "./fileRoutes.js"
 import attendanceRoutes from "./attendanceRoutes.js"
 import leaveRoutes from "./leaveRoutes.js"
+import diagnosticRoutes from "./diagnosticRoutes.js"
+import seedRoutes from "./seedRoutes.js"
 
 const router = express.Router()
 
@@ -21,11 +23,19 @@ const router = express.Router()
 router.get("/health", (req, res) => {
   res.status(200).json({
     status: "success",
-    message: "API is running",
-    timestamp: new Date(),
-    environment: process.env.NODE_ENV,
+    message: "API v1 is running",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development",
   })
 })
+
+// Diagnostic routes - no authentication required
+router.use("/diagnostic", diagnosticRoutes)
+
+// Seed routes - development only
+if (process.env.NODE_ENV === "development") {
+  router.use("/seed", seedRoutes)
+}
 
 // Mount routes
 router.use("/auth", authRoutes)

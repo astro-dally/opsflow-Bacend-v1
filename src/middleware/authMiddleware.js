@@ -9,38 +9,65 @@ import AppError from "../utils/appError.js"
 import catchAsync from "../utils/catchAsync.js"
 import User from "../models/User.js"
 import config from "../config/config.js"
+import { isBlacklisted } from "../services/tokenService.js"
+import { getPermissions } from "../services/permissionService.js"
 
 /**
  * Protect routes - verify user is authenticated
  */
 export const protect = catchAsync(async (req, res, next) => {
-  // 1) Get token from authorization header
+  // 1) Get token from authorization header or cookie
   let token
   if (req.headers.authorization?.startsWith("Bearer")) {
     token = req.headers.authorization.split(" ")[1]
+  } else if (req.cookies?.accessToken) {
+    token = req.cookies.accessToken
+  }
+
+  // In development mode, allow bypassing authentication with a special header
+  if (process.env.NODE_ENV === "development" && req.headers["x-bypass-auth"] === "true") {
+    // Create a mock user for development
+    req.user = {
+      id: "dev-user-id",
+      name: "Development User",
+      email: "dev@example.com",
+      role: "admin",
+      _id: "dev-user-id",
+    }
+    return next()
   }
 
   if (!token) {
     return next(new AppError("You are not logged in. Please log in to get access.", 401))
   }
 
-  // 2) Verify token
-  const decoded = await promisify(jwt.verify)(token, config.jwt.secret)
-
-  // 3) Check if user still exists
-  const user = await User.findById(decoded.id)
-  if (!user) {
-    return next(new AppError("The user belonging to this token no longer exists.", 401))
+  // 2) Check if token is blacklisted
+  const isTokenBlacklisted = await isBlacklisted(token)
+  if (isTokenBlacklisted) {
+    return next(new AppError("Invalid token. Please log in again.", 401))
   }
 
-  // 4) Check if user changed password after the token was issued
-  if (user.hasPasswordChangedAfter(decoded.iat)) {
-    return next(new AppError("User recently changed password. Please log in again.", 401))
-  }
+  try {
+    // 3) Verify token
+    const decoded = await promisify(jwt.verify)(token, config.jwt.secret)
 
-  // Grant access to protected route
-  req.user = user
-  next()
+    // 4) Check if user still exists
+    const user = await User.findById(decoded.id)
+    if (!user) {
+      return next(new AppError("The user belonging to this token no longer exists.", 401))
+    }
+
+    // 5) Check if user changed password after the token was issued
+    if (user.hasPasswordChangedAfter && user.hasPasswordChangedAfter(decoded.iat)) {
+      return next(new AppError("User recently changed password. Please log in again.", 401))
+    }
+
+    // Grant access to protected route
+    req.user = user
+    next()
+  } catch (error) {
+    return next(new AppError(`Authentication error: ${error.message}`, 401))
+  }
 })
 
 /**
@@ -58,38 +85,21 @@ export const restrictTo = (...roles) => {
 }
 
 /**
- * Handle refresh token functionality
+ * Check if user has permission for a specific resource and action
+ * @param {string} resource - Resource name (e.g., 'project', 'task')
+ * @param {string} action - Action name (e.g., 'read', 'create', 'update', 'delete')
+ * @returns {Function} Middleware function
  */
-export const refreshToken = catchAsync(async (req, res, next) => {
-  const { refreshToken } = req.body
+export const hasPermission = (resource, action) => {
+  return catchAsync(async (req, res, next) => {
+    // Get user permissions
+    const permissions = await getPermissions(req.user)
 
-  if (!refreshToken) {
-    return next(new AppError("Please provide refresh token", 400))
-  }
+    // Check if user has permission
+    if (!permissions.can(resource, action, req)) {
+      return next(new AppError("You do not have permission to perform this action", 403))
+    }
 
-  // Verify refresh token
-  const decoded = await promisify(jwt.verify)(refreshToken, config.jwt.secret)
-
-  // Check if user exists
-  const user = await User.findById(decoded.id)
-  if (!user) {
-    return next(new AppError("Invalid refresh token", 401))
-  }
-
-  // Check if user changed password after token issued
-  if (user.hasPasswordChangedAfter(decoded.iat)) {
-    return next(new AppError("User recently changed password. Please log in again.", 401))
-  }
-
-  // Generate new access token
-  const accessToken = jwt.sign({ id: user._id }, config.jwt.secret, {
-    expiresIn: config.jwt.accessExpiresIn,
+    next()
   })
-
-  res.status(200).json({
-    status: "success",
-    data: {
-      accessToken,
-    },
-  })
-})
+}

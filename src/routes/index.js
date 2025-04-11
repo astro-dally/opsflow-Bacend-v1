@@ -14,7 +14,7 @@ router.get("/health", (req, res) => {
 })
 
 // API version routes
-router.use("/v1", v1Routes)
+router.use("/", v1Routes)
 
 // For future API versions
 // router.use("/v2", v2Routes)

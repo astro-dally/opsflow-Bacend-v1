@@ -14,7 +14,9 @@ const attendanceSchema = new mongoose.Schema(
     },
     clockInTime: {
       type: Date,
-      required: [true, "Clock in time is required"],
+      required: function () {
+        return this.status !== "absent" // Only required if status is not "absent"
+      },
     },
     clockOutTime: {
       type: Date,
